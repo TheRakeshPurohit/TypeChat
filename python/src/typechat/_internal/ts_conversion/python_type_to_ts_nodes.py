@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import collections.abc
 from collections import OrderedDict
 import inspect
 import sys
@@ -21,6 +22,7 @@ from typing_extensions import (
     NotRequired,
     Protocol,
     Required,
+    Self,
     TypeAlias,
     TypeAliasType,    
     TypeGuard,
@@ -131,25 +133,24 @@ class TypeScriptNodeTranslationResult:
     errors: list[str]
 
 
-# TODO: https://github.com/microsoft/pyright/issues/6587
-_SELF_TYPE = getattr(typing_extensions, "Self")
-
 _LIST_TYPES: set[object] = {
     list,
     set,
     frozenset,
-    # TODO: https://github.com/microsoft/pyright/issues/6582
-    # collections.abc.MutableSequence,
-    # collections.abc.Sequence,
-    # collections.abc.Set
+    collections.abc.Sequence,
+    collections.abc.MutableSequence,
+    collections.abc.Set,
+    collections.abc.MutableSet,
+    collections.abc.Iterable,
+    collections.abc.Collection,
 }
 
-# TODO: https://github.com/microsoft/pyright/issues/6582
-# _DICT_TYPES: set[type] = {
-#     dict,
-#     collections.abc.MutableMapping,
-#     collections.abc.Mapping
-# }
+
+_DICT_TYPES: set[type] = {
+    dict,
+    collections.abc.MutableMapping,
+    collections.abc.Mapping,
+}
 
 
 def python_type_to_typescript_nodes(root_py_type: object) -> TypeScriptNodeTranslationResult:
@@ -222,7 +223,7 @@ def python_type_to_typescript_nodes(root_py_type: object) -> TypeScriptNodeTrans
             return NullTypeReferenceNode
         if py_type is Never or py_type is NoReturn:
             return NeverTypeReferenceNode
-        if py_type is _SELF_TYPE:
+        if py_type is Self:
             return ThisTypeReferenceNode
 
         # TODO: consider handling bare 'tuple' (and list, etc.)
@@ -237,7 +238,7 @@ def python_type_to_typescript_nodes(root_py_type: object) -> TypeScriptNodeTrans
                     return TypeReferenceNode(IdentifierNode("Array"), [type_arg])
                 return ArrayTypeNode(type_arg)
 
-            if origin is dict:
+            if origin in _DICT_TYPES:
                 # TODO
                 # Currently, we naively assume all dicts are string-keyed
                 # unless they're annotated with `int` or `float` (note: not `int | float`).
